@@ -152,6 +152,12 @@
         <div class="row"><button type="button" class="btn small primary" id="cfgSave">儲存並同步</button><span class="st" id="cfgSt"></span></div>
       </section>
       <section class="panel">
+        <h3>Google Books API 金鑰（選填）</h3>
+        <p class="hint">沒有金鑰時，Google Books 常因共用額度用完而回傳 429。填入自己的免費金鑰（每天 1000 次）就能穩定查詢。<a href="https://github.com/Cozywolf/trpg-shelf#google-books-api-金鑰選填" target="_blank" rel="noopener">申請步驟</a></p>
+        <div class="f"><label for="cfgGbKey">API 金鑰</label><input id="cfgGbKey" class="mono" placeholder="AIza…" autocomplete="off"></div>
+        <div class="row"><button type="button" class="btn small" id="cfgGbSave">儲存金鑰</button><span class="st" id="gbSt"></span></div>
+      </section>
+      <section class="panel">
         <h3>同步狀態</h3>
         <p class="hint" id="syncInfo"></p>
         <div class="row"><button type="button" class="btn small" id="syncNow">立即同步</button></div>

@@ -254,16 +254,19 @@ async function directJSON(url, ms){
   return r.json();
 }
 // 先從手機直接查；失敗時改由自己的 Apps Script 代查（不受瀏覽器跨網域與限流影響）
-async function getJSON(url, ms=9000){
+async function getJSON(url, ms=9000, notFoundOk=false){
   try { return await directJSON(url, ms); }
   catch (e) {
+    if (notFoundOk && e.message === "HTTP 404") return null;
+    if (e.message === "HTTP 400" && /googleapis/.test(url) && /[?&]key=/.test(url)) throw new Error("API 金鑰無效");
     if (!S.cfg.url || !navigator.onLine) throw e;
     try {
       const r = await timeout(api({ action:"fetch", url }), 25000);
+      if (notFoundOk && r.status === 404) return null;
       if (r.status !== 200) throw new Error(r.status === 429 ? "查詢次數超過上限（429）" : "HTTP " + r.status);
       return JSON.parse(r.body);
     } catch (e2) {
-      const m = e2.message === "未知的動作" ? "Apps Script 需要更新" : e2.message === "timeout" ? "逾時" : e2.message;
+      const m = /UrlFetchApp/.test(e2.message) ? "Apps Script 尚未授權連外（請執行 authorize）" : e2.message === "未知的動作" ? "Apps Script 需要更新" : e2.message === "timeout" ? "逾時" : e2.message;
       throw new Error(`${e.message}；經 Apps Script：${m}`);
     }
   }
@@ -286,14 +289,16 @@ async function fromOpenBD(isbn){
     pubdate: d, lang:"日文", note: s.series ? "系列：" + nfkc(s.series) : "", coverUrl: s.cover || "" };
 }
 async function fromGoogle(isbn){
-  const j = await getJSON("https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn, 8000);
+  const key = (S.cfg.gbKey || "").trim();
+  const j = await getJSON("https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn + (key ? "&key=" + encodeURIComponent(key) : ""), 8000, true);
   const v = j?.items?.[0]?.volumeInfo; if (!v?.title) return null;
   const img = (v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail || "").replace(/^http:/, "https:").replace("&edge=curl", "");
   return { src:"Google Books", title: nfkc(v.title + (v.subtitle ? ": " + v.subtitle : "")), author: (v.authors||[]).map(nfkc).join("、"),
     publisher: nfkc(v.publisher), pubdate: v.publishedDate || "", lang: LANG[v.language] || "", coverUrl: img };
 }
 async function fromOpenLibrary(isbn){
-  const j = await getJSON(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`, 12000);
+  // 2026-09 起 /api/books 會回 404，官方建議改用 /api/books.json
+  const j = await getJSON(`https://openlibrary.org/api/books.json?bibkeys=ISBN:${isbn}&format=json&jscmd=data`, 12000, true);
   const d = j?.["ISBN:"+isbn]; if (!d?.title) return null;
   return { src:"Open Library", title: nfkc(d.title + (d.subtitle ? ": " + d.subtitle : "")), author: (d.authors||[]).map(a=>nfkc(a.name)).join("、"),
     publisher: nfkc(d.publishers?.[0]?.name), pubdate: d.publish_date || "", coverUrl: d.cover?.medium || d.cover?.large || "" };
@@ -669,14 +674,14 @@ $("#delYes").onclick = () => { const id=E.id; closeEditor(); removeBook(id); toa
 
 /* ---------- settings / import / export ---------- */
 const st = $("#st");
-function openSettings(){ $("#cfgUrl").value=S.cfg.url; $("#cfgToken").value=S.cfg.token; $("#cfgSt").textContent=""; $("#impSt").textContent=""; renderSync(); st.showModal(); }
+function openSettings(){ $("#cfgUrl").value=S.cfg.url; $("#cfgToken").value=S.cfg.token; $("#cfgGbKey").value=S.cfg.gbKey||""; $("#cfgSt").textContent=""; $("#impSt").textContent=""; renderSync(); st.showModal(); }
 $("#stClose").onclick = () => st.close();
 $("#syncNow").onclick = () => sync(true);
 $("#cfgSave").onclick = async () => {
   const url = $("#cfgUrl").value.trim(), token = $("#cfgToken").value.trim();
   const s = $("#cfgSt");
   if (url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) { s.className="st bad"; s.textContent="網址格式不對，應該是 https://script.google.com/macros/s/…/exec"; return; }
-  S.cfg = { url, token }; store(K.cfg, S.cfg);
+  S.cfg = { ...S.cfg, url, token }; store(K.cfg, S.cfg);
   if (!url) { s.className="st"; s.textContent="已取消同步，資料只存在本機。"; render(); return; }
   // first connect: push all local books so nothing is lost
   for (const b of S.books) if (!S.out.up[b.id]) S.out.up[b.id] = b;
@@ -685,6 +690,11 @@ $("#cfgSave").onclick = async () => {
   await sync();
   if (S.syncErr) { s.className="st bad"; s.textContent="連線失敗：" + S.syncErr; }
   else { s.className="st ok"; s.textContent=`連線成功，目前共 ${S.books.length} 本。`; }
+};
+
+$("#cfgGbSave").onclick = () => {
+  S.cfg.gbKey = $("#cfgGbKey").value.trim(); store(K.cfg, S.cfg); lookCache.clear();
+  const st = $("#gbSt"); st.className = "st ok"; st.textContent = S.cfg.gbKey ? "已儲存，之後查詢 Google Books 會使用這組金鑰。" : "已清除金鑰。";
 };
 
 const COLS = [["title","書名"],["titleAlt","原文書名"],["system","系統"],["kind","類型"],["author","作者"],["publisher","出版社"],["isbn","ISBN"],["pubdate","出版日期"],["code","QR內容"],["edition","版次"],["lang","語言"],["tags","標籤"],["note","備註"],["shelf","流水號"],["where","收藏位置"],["needsReview","待確認"],["coverUrl","封面網址"]];

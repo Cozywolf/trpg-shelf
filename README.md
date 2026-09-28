@@ -47,6 +47,18 @@ App 網址：https://cozywolf.github.io/trpg-shelf/
 3. **部署 → 管理部署作業 → 編輯（鉛筆）→ 版本選「新版本」→ 部署**（不要用「新增部署作業」，網址才不會變）
 4. 在瀏覽器打開你的 `/exec` 網址，確認顯示的 `version` 是新的、`tokenSet` 是 `true`
 
+### Google Books API 金鑰（選填）
+
+Google Books 不帶金鑰時，所有人共用同一份額度，常常回傳 429。申請自己的免費金鑰（每天 1000 次）：
+
+1. 到 https://console.cloud.google.com/ ，上方選單 **建立新專案**（名稱隨意，例如 `trpg-shelf`）
+2. 左側 **API 和服務 → 程式庫**，搜尋 **Books API** → **啟用**
+3. **API 和服務 → 憑證 → 建立憑證 → API 金鑰**，複製產生的金鑰（`AIza` 開頭）
+4. 建議按金鑰旁的 **編輯**：「應用程式限制」選 **網站**，加入 `https://cozywolf.github.io/*`；「API 限制」選 **限制金鑰** → 只勾 **Books API** → 儲存。這樣別人就算拿到金鑰也不能在其他地方使用
+5. 在 App 設定頁的「Google Books API 金鑰」貼上 → **儲存金鑰**
+
+不需要綁信用卡，Books API 是免費的。
+
 ## 三、裝到 Android 手機
 
 1. 用 **Chrome** 開 https://cozywolf.github.io/trpg-shelf/
@@ -60,7 +72,7 @@ App 網址：https://cozywolf.github.io/trpg-shelf/
 | 書籍 | 資料來源 | 封面 |
 |---|---|---|
 | 日本書（ISBN 978-4） | [openBD](https://openbd.jp/)（資料來自國立國會圖書館），加上 Google Books | Google Books 有才有，常常沒有 |
-| 美國等其他書 | Google Books、[Open Library](https://openlibrary.org/) | 通常有 |
+| 美國等其他書 | Google Books（建議設定金鑰）、[Open Library](https://openlibrary.org/) | 通常有 |
 
 幾個來源會同時查詢，一個失敗時會用其他來源的結果。手機直接連線失敗（例如 Google Books 查詢次數超過上限）時，會改由你的 Apps Script 代為查詢。日本書的封面資料庫已經停止免費提供，查不到封面時請按「拍封面」。
 
