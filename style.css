@@ -193,3 +193,26 @@ pre.csvhelp{font-family:var(--mono);font-size:12px;background:var(--sunken);bord
 .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;display:inline-block;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin,.sync.busy i{animation:none}}
+
+/* duplicate warning */
+dialog.alert{width:min(440px,calc(100% - 32px));height:fit-content;max-height:calc(100% - 32px);margin:auto;border-radius:18px}
+.alert-body{padding:22px 18px 16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.alert-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;font-family:var(--serif)}
+.alert.block .alert-icon{background:var(--danger-soft);color:var(--danger)}
+.alert.warn .alert-icon{background:var(--warn-soft);color:var(--warn)}
+.alert h2{margin:0;font-family:var(--serif);font-size:19px;text-wrap:balance}
+.alert.block h2{color:var(--danger)}
+.alert p{margin:0;color:var(--muted);font-size:14px}
+.alert p .mono{font-family:var(--mono);color:var(--ink)}
+.dup-list{display:flex;flex-direction:column;gap:8px}
+.dup-item{display:flex;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:8px;width:100%}
+.dup-item:hover{border-color:var(--accent)}
+.dup-cv{width:40px;flex:0 0 40px;border-radius:5px;overflow:hidden}
+.dup-cv .ph{padding:4px}.dup-cv .ph .t,.dup-cv .ph .sys{display:none}.dup-cv .ph::after{display:none}
+.dup-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.dup-t b{font-family:var(--serif);font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dup-t small{color:var(--muted);font-size:12px}
+.dup-go{font-size:13px;color:var(--accent);flex:0 0 auto}
+.alert-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
+.alert-acts .btn{flex:1 1 120px}
+@media (max-width:640px){dialog.alert{width:calc(100% - 32px);height:fit-content;border-radius:18px;margin:auto}}

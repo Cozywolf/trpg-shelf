@@ -385,7 +385,22 @@ function found(r){
   const mode = SC.mode; closeScanner();
   if (mode === "check") doCheck(r);
   else if (mode === "editor") applyCode(r);
-  else { openEditor(null, { isbn:r.isbn, code:r.code }); if (r.isbn) runLookup(); }
+  else addFromScan(r);
+}
+async function addFromScan(r){
+  const same = r.isbn ? S.books.filter(b => b.isbn === r.isbn) : [];
+  if (same.length) {
+    const a = await askDup("isbn", same, r.isbn);
+    if (a.view) openEditor(a.view);
+    return;
+  }
+  const sameCode = r.code ? S.books.filter(b => b.code && norm(b.code) === norm(r.code)) : [];
+  if (sameCode.length) {
+    const a = await askDup("code", sameCode, r.code);
+    if (a.view) { openEditor(a.view); return; }
+    if (a.choice !== "continue") return;
+  }
+  openEditor(null, { isbn:r.isbn, code:r.code }); if (r.isbn) runLookup();
 }
 $("#scanClose").onclick = () => closeScanner();
 $("#torchBtn").onclick = async () => {
@@ -554,8 +569,10 @@ function checkDup(){
 }
 $("#dupBox").addEventListener("click", e => { const b=e.target.closest("[data-open]"); if (!b) return; const bk=S.books.find(x=>x.id===b.dataset.open); if (bk) openEditor(bk); });
 
-$("#edForm").addEventListener("submit", e => {
+const exactTitle = t => String(t ?? "").normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+$("#edForm").addEventListener("submit", async e => {
   e.preventDefault();
+  if (!E) return;
   const title = $("#e_title").value.trim(); if (!title) { $("#e_title").focus(); return; }
   if ($("#e_tag").value.trim()) { addTag($("#e_tag").value); $("#e_tag").value=""; }
   const b = { ...(E.orig||{}) };
@@ -567,11 +584,63 @@ $("#edForm").addEventListener("submit", e => {
   b.tags = [...E.tags]; b.needsReview = $("#e_review").checked;
   b.coverUrl = E.coverUrl || ""; if (E.coverData) b.coverData = E.coverData; else delete b.coverData;
   b.createdAt = E.orig?.createdAt || Date.now();
-  const isNew = !E.id;
+  const isNew = !E.id, o = E.orig || {};
+  const others = S.books.filter(x => x.id !== b.id);
+
+  // 有 ISBN：同一個 ISBN 已經存在就不能再登錄
+  if (b.isbn && (isNew || b.isbn !== o.isbn)) {
+    const same = others.filter(x => x.isbn === b.isbn);
+    if (same.length) {
+      const a = await askDup("isbn", same, b.isbn);
+      if (a.view) openEditor(a.view);
+      return;
+    }
+  }
+  // 沒有 ISBN：書名完全相同，或 QR 內容相同 → 讓使用者決定
+  if (!b.isbn && (isNew || exactTitle(b.title) !== exactTitle(o.title) || norm(b.code) !== norm(o.code))) {
+    const sameTitle = others.filter(x => exactTitle(x.title) === exactTitle(b.title));
+    const sameCode = b.code ? others.filter(x => x.code && norm(x.code) === norm(b.code) && !sameTitle.includes(x)) : [];
+    if (sameTitle.length || sameCode.length) {
+      const a = await askDup(sameTitle.length ? "title" : "code", [...sameTitle, ...sameCode], sameTitle.length ? b.title : b.code);
+      if (a.view) { openEditor(a.view); return; }
+      if (a.choice !== "continue") return;
+    }
+  }
   putBook(b);
   toast(isNew ? `已加入 ${shelfStr(b.shelf)}《${title}》` : "已更新");
   closeEditor();
 });
+
+/* ---------- duplicate warning ---------- */
+const dupDlg = $("#dupDlg");
+let dupResolve = null;
+function askDup(kind, matches, key){
+  const T = {
+    isbn:  { cls:"block", h:"這本已經收藏了", m:`ISBN <span class="mono">${esc(key)}</span> 已經登錄過，不會重複新增。` },
+    title: { cls:"warn",  h:"有書名完全相同的書", m:`「${esc(key)}」已經在收藏裡。如果是不同版本、場次或另一本複本，可以繼續登錄。` },
+    code:  { cls:"warn",  h:"QR 內容相同", m:`有書的 QR／條碼內容和這本一樣（同一個社團的網址也可能相同）。` },
+  }[kind];
+  dupDlg.className = "alert " + T.cls;
+  $("#dupHead").textContent = T.h;
+  $("#dupMsg").innerHTML = T.m;
+  $("#dupList").innerHTML = matches.slice(0,4).map(b => `<button type="button" class="dup-item" data-view="${esc(b.id)}">
+      <span class="dup-cv">${coverHTML(b)}</span>
+      <span class="dup-t"><b>${esc(b.title||"未命名")}</b><small>${esc([shelfStr(b.shelf), b.edition, b.system, b.publisher].filter(Boolean).join("・"))}</small></span>
+      <span class="dup-go">查看</span></button>`).join("");
+  $("#dupActs").innerHTML = kind === "isbn"
+    ? `<button type="button" class="btn primary" data-choice="cancel">知道了</button>`
+    : `<button type="button" class="btn" data-choice="cancel">取消</button><button type="button" class="btn primary" data-choice="continue">仍要登錄</button>`;
+  navigator.vibrate?.([40,60,40]);
+  dupDlg.showModal();
+  return new Promise(res => { dupResolve = res; });
+}
+function closeDup(result){ if (dupDlg.open) dupDlg.close(); const r = dupResolve; dupResolve = null; r?.(result); }
+dupDlg.addEventListener("click", e => {
+  const v = e.target.closest("[data-view]"); if (v) { const bk = S.books.find(x=>x.id===v.dataset.view); closeDup({ view:bk }); return; }
+  const c = e.target.closest("[data-choice]"); if (c) closeDup({ choice:c.dataset.choice });
+});
+dupDlg.addEventListener("cancel", e => { e.preventDefault(); closeDup({ choice:"cancel" }); });
+
 $("#delBtn").onclick = () => { $("#delBtn").hidden=true; $("#delConfirm").hidden=false; };
 $("#delNo").onclick = () => { $("#delBtn").hidden=false; $("#delConfirm").hidden=true; };
 $("#delYes").onclick = () => { const id=E.id; closeEditor(); removeBook(id); toast("已刪除"); };
