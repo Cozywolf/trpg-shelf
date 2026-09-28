@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TRPG 藏書閣</title>
+<meta name="theme-color" content="#4B3FD1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <h1>TRPG 藏書閣</h1>
+      <span class="count" id="count"></span>
+      <button class="sync" id="syncBtn" type="button" title="立即同步"><i></i><span>本機</span></button>
+      <button class="gear" id="setBtn" type="button" aria-label="設定">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+    <div class="searchrow">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="書名、系統、社團、ISBN…" autocomplete="off" aria-label="搜尋藏書">
+        <button class="clear" id="qclear" type="button" aria-label="清除搜尋" hidden>×</button>
+      </div>
+      <button class="iconbtn" id="checkBtn" type="button" title="掃條碼確認是否已收藏">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>
+        <span>查重</span>
+      </button>
+    </div>
+    <div class="filters">
+      <select id="fSys" aria-label="系統"></select>
+      <select id="fKind" aria-label="類型"></select>
+      <select id="fTag" aria-label="標籤"></select>
+      <select id="sort" aria-label="排序">
+        <option value="recent">最近加入</option>
+        <option value="shelf">流水號</option>
+        <option value="title">書名</option>
+        <option value="system">系統</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="setupNote"></div>
+  <div id="banner"></div>
+  <div class="stats" id="stats"></div>
+  <div id="list"></div>
+</div>
+
+<div class="dock"><div class="wrap">
+  <button class="btn primary" id="scanAddBtn" type="button">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>
+    掃描新增
+  </button>
+  <button class="btn" id="addManual" type="button">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    手動新增
+  </button>
+</div></div>
+
+<!-- Scanner -->
+<dialog class="scan" id="scan" aria-label="掃描條碼">
+  <video id="video" playsinline muted></video>
+  <div class="scan-frame" aria-hidden="true"><span></span></div>
+  <div class="scan-top">
+    <span class="scan-title" id="scanTitle">掃描條碼</span>
+    <button class="scan-x" id="torchBtn" type="button" hidden aria-label="手電筒">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2h12l-2 6H8L6 2zM8 8v13h8V8M12 12v3"/></svg>
+    </button>
+    <button class="scan-x" id="scanClose" type="button" aria-label="關閉">×</button>
+  </div>
+  <div class="scan-bottom">
+    <p id="scanMsg">把書背的 ISBN 條碼或 QR code 放進框內</p>
+    <form id="scanManualForm" class="scan-manual">
+      <input id="scanManual" inputmode="numeric" placeholder="或直接輸入 ISBN" autocomplete="off" aria-label="手動輸入 ISBN">
+      <button class="btn small primary" type="submit">確定</button>
+    </form>
+  </div>
+</dialog>
+
+<!-- Editor -->
+<dialog id="ed" aria-labelledby="edTitle">
+  <form class="dlg" id="edForm" method="dialog">
+    <header><h2 id="edTitle">新增書籍</h2><button type="button" class="x" id="edClose" aria-label="關閉">×</button></header>
+    <div class="body">
+      <div class="lookup" id="lookupBar">
+        <button type="button" class="btn small" id="edScanBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>掃條碼</button>
+        <button type="button" class="btn small" id="lookupBtn">用 ISBN 查資料</button>
+        <span class="st" id="lookupSt"></span>
+      </div>
+      <div id="dupBox"></div>
+      <div class="fields">
+        <div class="f full"><label for="e_title">書名 *</label><input id="e_title" required></div>
+        <div class="f full"><label for="e_titleAlt">原文書名／別名</label><input id="e_titleAlt" placeholder="例：クトゥルフ神話TRPG、迷霧劇本"></div>
+        <div class="f"><label for="e_system">系統</label><input id="e_system" list="sysList" placeholder="例：CoC 7版"></div>
+        <div class="f"><label for="e_lang">語言</label><input id="e_lang" list="langList" placeholder="繁中"></div>
+        <div class="f full"><span class="lbl">類型</span><div class="seg" id="e_kind" role="radiogroup" aria-label="類型"></div></div>
+        <div class="f"><label for="e_author">作者</label><input id="e_author"></div>
+        <div class="f"><label for="e_publisher">出版社／社團</label><input id="e_publisher"></div>
+        <div class="f"><label for="e_isbn">ISBN</label><input id="e_isbn" class="mono" inputmode="numeric" placeholder="978…"></div>
+        <div class="f"><label for="e_pubdate">出版日期</label><input id="e_pubdate" placeholder="例：2023-08"></div>
+        <div class="f"><label for="e_edition">版次／場次</label><input id="e_edition" placeholder="例：二刷、CWT68、C104"></div>
+        <div class="f"><label for="e_shelf">流水號</label><input id="e_shelf" class="mono" inputmode="numeric"></div>
+        <div class="f full"><label for="e_code">QR／條碼內容（非 ISBN）</label><input id="e_code" class="mono" placeholder="同人本的 QR 網址等，查重時會比對"></div>
+        <div class="f full"><label for="e_where">收藏位置</label><input id="e_where" placeholder="例：書櫃B 第3層"></div>
+        <div class="f full"><span class="lbl">標籤</span>
+          <div class="chipin" id="tagBox"><input id="e_tag" placeholder="輸入後按 Enter" aria-label="新增標籤" enterkeyhint="done"></div>
+          <div class="suggest" id="tagSuggest"></div>
+        </div>
+        <div class="f full"><label for="e_note">備註</label><textarea id="e_note" placeholder="購入地點、價格、書況、是否缺頁…"></textarea></div>
+        <div class="f full"><span class="lbl">封面</span>
+          <div class="coverbox">
+            <div class="prev" id="coverPrev"></div>
+            <div class="acts">
+              <label class="btn small filebtn">拍封面<input id="edCoverCam" type="file" accept="image/*" capture="environment"></label>
+              <label class="btn small filebtn">從相簿選<input id="edCoverPick" type="file" accept="image/*"></label>
+              <button type="button" class="btn small" id="coverRm">移除封面</button>
+            </div>
+          </div>
+        </div>
+        <label class="check f full"><input type="checkbox" id="e_review"> 資料待確認（先快速建檔，之後再補）</label>
+      </div>
+    </div>
+    <footer>
+      <button type="button" class="btn danger small" id="delBtn" hidden>刪除</button>
+      <span class="confirm" id="delConfirm" hidden>確定刪除這本？<button type="button" class="btn small danger" id="delYes">刪除</button><button type="button" class="btn small" id="delNo">取消</button></span>
+      <span class="sp"></span>
+      <button type="button" class="btn" id="edCancel">取消</button>
+      <button type="submit" class="btn primary" id="saveBtn">儲存</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- Settings -->
+<dialog id="st" aria-labelledby="stTitle">
+  <div class="dlg">
+    <header><h2 id="stTitle">設定</h2><button type="button" class="x" id="stClose" aria-label="關閉">×</button></header>
+    <div class="body">
+      <section class="panel">
+        <h3>Google 試算表同步</h3>
+        <p class="hint">貼上 Apps Script 部署後的網址和你設定的通關密語。<a href="https://github.com/Cozywolf/trpg-shelf#設定-google-試算表同步" target="_blank" rel="noopener">設定步驟</a></p>
+        <div class="f"><label for="cfgUrl">Apps Script 網址</label><input id="cfgUrl" class="mono" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+        <div class="f"><label for="cfgToken">通關密語</label><input id="cfgToken" autocomplete="off"></div>
+        <div class="row"><button type="button" class="btn small primary" id="cfgSave">儲存並同步</button><span class="st" id="cfgSt"></span></div>
+      </section>
+      <section class="panel">
+        <h3>同步狀態</h3>
+        <p class="hint" id="syncInfo"></p>
+        <div class="row"><button type="button" class="btn small" id="syncNow">立即同步</button></div>
+      </section>
+      <section class="panel">
+        <h3>匯入／匯出 CSV</h3>
+        <p class="hint">匯入時第一列為欄位名稱，至少要有「書名」。標籤用「、」或「;」分隔。ISBN 重複的列會略過。</p>
+        <pre class="csvhelp">書名,原文書名,系統,類型,作者,出版社,ISBN,版次,語言,標籤,備註,流水號,收藏位置</pre>
+        <div class="row">
+          <button type="button" class="btn small" id="expBtn">匯出 CSV</button>
+          <label class="btn small filebtn">匯入 CSV<input id="impFile" type="file" accept=".csv,text/csv"></label>
+          <span class="st" id="impSt"></span>
+        </div>
+      </section>
+    </div>
+  </div>
+</dialog>
+
+<datalist id="sysList"></datalist>
+<datalist id="langList"><option value="繁中"><option value="日文"><option value="英文"><option value="簡中"><option value="韓文"></datalist>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script src="zxing.min.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>
