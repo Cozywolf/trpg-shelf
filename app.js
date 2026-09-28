@@ -56,16 +56,20 @@ const shelfStr = n => n ? "#" + String(n).padStart(4,"0") : "";
 const nextShelf = () => S.books.reduce((m,b)=>Math.max(m, +b.shelf||0), 0) + 1;
 function counts(key){ const m=new Map(); for(const b of S.books){ const vs = key==="tags" ? (b.tags||[]) : [b[key]]; for(const v of vs) if(v) m.set(v,(m.get(v)||0)+1);} return [...m].sort((a,b)=>b[1]-a[1]); }
 function findByCode(isbn, code){ return S.books.filter(b => (isbn && b.isbn===isbn) || (code && b.code && norm(b.code)===norm(code))); }
-function guessSystem(t){
-  const s = String(t||"");
-  if (/クトゥルフ|克蘇魯|克苏鲁|Cthulhu/i.test(s)) return /6版|第6版|6th/i.test(s) ? "CoC 6版" : "CoC 7版";
-  if (/ダンジョンズ|Dungeons|D&D|龍與地下城/i.test(s)) return "D&D 5e";
-  if (/ソード・?ワールド|劍世界|Sword ?World/i.test(s)) return "SW2.5 劍世界";
+function guessSystem(t, publisher="", pubdate=""){
+  const s = String(t||""), pub = String(publisher||""), y = parseInt(String(pubdate).slice(0,4),10) || 0;
+  if (/クトゥルフ|克蘇魯|克苏鲁|Cthulhu/i.test(s)) return /6版|第6版|6th/i.test(s) || (y && y < 2014) ? "CoC 6版" : "CoC 7版";
+  if (/ダンジョンズ|Dungeons|D&D|龍與地下城/i.test(s) || /Wizards of the Coast/i.test(pub)) return y >= 2024 ? "D&D 2024" : y >= 2014 || !y ? "D&D 5e" : "D&D";
+  if (/ソード・?ワールド|劍世界|Sword ?World/i.test(s)) return /2\.0/.test(s) ? "SW2.0 劍世界" : "SW2.5 劍世界";
   if (/シノビガミ|忍神/.test(s)) return "忍神";
-  if (/Pathfinder|パスファインダー/i.test(s)) return "Pathfinder 2e";
+  if (/Pathfinder|パスファインダー/i.test(s) || /Paizo/i.test(pub)) return y && y < 2019 ? "Pathfinder 1e" : "Pathfinder 2e";
+  if (/Starfinder/i.test(s)) return "Starfinder";
   if (/エモクロア|Emoklore/i.test(s)) return "Emoklore";
   if (/インセイン|Insane/i.test(s)) return "Insane 瘋狂";
   if (/ダブルクロス|Double ?Cross/i.test(s)) return "Double Cross 3rd";
+  if (/Blades in the Dark/i.test(s)) return "Blades in the Dark";
+  if (/Vampire/i.test(s)) return "Vampire V5";
+  if (/Fabula Ultima/i.test(s)) return "Fabula Ultima";
   return "";
 }
 
@@ -75,7 +79,7 @@ function coverHTML(b){
   const src = coverOf(b);
   return `<div class="cv">${ph}${src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}</div>`;
 }
-document.addEventListener("error", e => { if (e.target.tagName==="IMG" && e.target.parentNode?.classList?.contains("cv")) e.target.remove(); }, true);
+document.addEventListener("error", e => { if (e.target.tagName==="IMG" && e.target.closest?.(".cv,.lk")) e.target.remove(); }, true);
 
 function cardHTML(b, sample=false){
   const tags = (b.tags||[]).slice(0,3).map(t=>`<span>#${esc(t)}</span>`).join("");
@@ -243,42 +247,62 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 const LANG = { ja:"日文", "zh-TW":"繁中", "zh-Hant":"繁中", "zh-HK":"繁中", "zh-CN":"簡中", "zh-Hans":"簡中", zh:"中文", en:"英文", eng:"英文", ko:"韓文", jpn:"日文", chi:"中文" };
 function timeout(p, ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")), ms))]); }
 async function getJSON(url){ const r = await timeout(fetch(url), 9000); if (!r.ok) throw new Error(r.status); return r.json(); }
+const nfkc = v => String(v ?? "").normalize("NFKC").replace(/\s+/g, " ").trim();
+function cleanJpAuthor(a){
+  return nfkc(a).replace(/,\s+/g, ",").split(" ").map(p => {
+    p = p.replace(/,\d{4}-(\d{4})?$/, "").replace(/[／/]?(著|編|編著|監修|訳|翻訳|イラスト|原作)$/, "");
+    const parts = p.split(",");
+    if (parts.length === 2) return /[\u3040-\u30ff\u4e00-\u9fff]/.test(p) ? parts.join("") : `${parts[1]} ${parts[0]}`;
+    return p;
+  }).filter(Boolean).join("、");
+}
+// 日本書：openBD（資料來自國立國會圖書館，目前不提供封面）
 async function fromOpenBD(isbn){
   const j = await getJSON("https://api.openbd.jp/v1/get?isbn=" + isbn);
   const s = j?.[0]?.summary; if (!s?.title) return null;
   const d = String(s.pubdate||"").replace(/^(\d{4})(\d{2})?(\d{2})?$/, (m,y,mo,da)=>[y,mo,da].filter(Boolean).join("-"));
-  return { src:"openBD", title: s.title + (s.volume ? " " + s.volume : ""), titleAlt: s.series || "",
-    author: String(s.author||"").replace(/／?(著|編|監修|訳|イラスト)/g, "").replace(/\s+/g," ").trim(),
-    publisher: s.publisher || "", pubdate: d, lang:"日文", coverUrl: s.cover || "" };
+  return { src:"openBD", title: nfkc(s.title), author: cleanJpAuthor(s.author), publisher: nfkc(s.publisher),
+    pubdate: d, lang:"日文", note: s.series ? "系列：" + nfkc(s.series) : "", coverUrl: s.cover || "" };
 }
 async function fromGoogle(isbn){
   const j = await getJSON("https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn);
   const v = j?.items?.[0]?.volumeInfo; if (!v?.title) return null;
   const img = (v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail || "").replace(/^http:/, "https:").replace("&edge=curl", "");
-  return { src:"Google Books", title: v.title + (v.subtitle ? "：" + v.subtitle : ""), author:(v.authors||[]).join("、"),
-    publisher: v.publisher || "", pubdate: v.publishedDate || "", lang: LANG[v.language] || "", coverUrl: img };
+  return { src:"Google Books", title: nfkc(v.title + (v.subtitle ? ": " + v.subtitle : "")), author: (v.authors||[]).map(nfkc).join("、"),
+    publisher: nfkc(v.publisher), pubdate: v.publishedDate || "", lang: LANG[v.language] || "", coverUrl: img };
 }
 async function fromOpenLibrary(isbn){
   const j = await getJSON(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
   const d = j?.["ISBN:"+isbn]; if (!d?.title) return null;
-  return { src:"Open Library", title: d.title + (d.subtitle ? "：" + d.subtitle : ""), author:(d.authors||[]).map(a=>a.name).join("、"),
-    publisher: d.publishers?.[0]?.name || "", pubdate: d.publish_date || "", coverUrl: d.cover?.medium || d.cover?.large || "" };
+  return { src:"Open Library", title: nfkc(d.title + (d.subtitle ? ": " + d.subtitle : "")), author: (d.authors||[]).map(a=>nfkc(a.name)).join("、"),
+    publisher: nfkc(d.publishers?.[0]?.name), pubdate: d.publish_date || "", coverUrl: d.cover?.medium || d.cover?.large || "" };
+}
+function probeImage(url, ms=5000){
+  return new Promise(res => { const i = new Image(); const t = setTimeout(()=>res(false), ms);
+    i.onload = () => { clearTimeout(t); res(i.naturalWidth > 1); }; i.onerror = () => { clearTimeout(t); res(false); };
+    i.referrerPolicy = "no-referrer"; i.src = url; });
 }
 const lookCache = new Map();
 async function lookupIsbn(isbn){
   if (lookCache.has(isbn)) return lookCache.get(isbn);
   const jp = /^97[89]4/.test(isbn);
-  const srcs = jp ? [fromOpenBD, fromGoogle, fromOpenLibrary] : [fromGoogle, fromOpenLibrary, fromOpenBD];
+  // 日本書：openBD 資料最完整，Google Books 補封面；美國等其他書：Google Books 與 Open Library
+  const srcs = jp ? [fromOpenBD, fromGoogle, fromOpenLibrary] : [fromGoogle, fromOpenLibrary];
+  const results = await Promise.allSettled(srcs.map(f => f(isbn)));
   const out = { sources:[] }; let failed = 0;
-  for (const f of srcs) {
-    try {
-      const r = await f(isbn); if (!r) continue;
-      out.sources.push(r.src);
-      for (const k in r) if (k!=="src" && r[k] && !out[k]) out[k] = r[k];
-      if (out.title && out.coverUrl && out.publisher) break;
-    } catch { failed++; }
+  results.forEach(r => {
+    if (r.status === "rejected") { failed++; return; }
+    if (!r.value) return;
+    out.sources.push(r.value.src);
+    for (const k in r.value) if (k!=="src" && r.value[k] && !out[k]) out[k] = r.value[k];
+  });
+  if (out.title && !out.coverUrl) {
+    const ol = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`;
+    if (await probeImage(ol)) out.coverUrl = ol;
   }
-  if (out.title && !out.system) out.system = guessSystem(out.title + " " + (out.titleAlt||""));
+  if (out.pubdate && !/^\d{4}(-\d{2}){0,2}$/.test(out.pubdate)) { const d = new Date(out.pubdate); if (!isNaN(d)) out.pubdate = /^\d{4}$/.test(out.pubdate.trim()) ? out.pubdate.trim() : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` + (/\d{1,2},/.test(out.pubdate) ? "-" + String(d.getDate()).padStart(2,"0") : ""); }
+  if (out.title && !out.system) out.system = guessSystem(out.title + " " + (out.note||""), out.publisher, out.pubdate);
+  if (out.title && !out.lang) out.lang = jp ? "日文" : /^97[89][01]/.test(isbn) ? "英文" : "";
   out.failed = failed === srcs.length;
   if (out.title) lookCache.set(isbn, out);
   return out;
@@ -412,7 +436,7 @@ document.addEventListener("click", e => {
   const card = e.target.closest(".card[data-id]");
   if (card) { const b = S.books.find(x=>x.id===card.dataset.id); if (b) openEditor(b); }
 });
-function pickLookup(lk){ const o={}; for (const k of ["title","titleAlt","author","publisher","pubdate","lang","system","coverUrl"]) if (lk[k]) o[k]=lk[k]; o.kind="官方出版"; return o; }
+function pickLookup(lk){ const o={}; for (const k of ["title","titleAlt","author","publisher","pubdate","lang","system","note","coverUrl"]) if (lk[k]) o[k]=lk[k]; o.kind="官方出版"; return o; }
 
 /* ---------- editor ---------- */
 const ed = $("#ed");
@@ -458,11 +482,11 @@ async function runLookup(manual){
   $("#lookupBtn").disabled = false;
   if (E !== me) return;
   if (!lk.title) {
-    setLookupSt(lk.failed ? "查詢失敗，請檢查網路後再試。" : "資料庫查無此書（台灣出版品常見），請手動填寫或拍封面。", "bad");
+    setLookupSt(lk.failed ? "查詢失敗，請檢查網路後再試。" : "資料庫查無此書，請手動填寫或拍封面。", "bad");
     return;
   }
   let n = 0;
-  for (const k of ["title","titleAlt","author","publisher","pubdate","lang","system"]) {
+  for (const k of ["title","titleAlt","author","publisher","pubdate","lang","system","note"]) {
     const el = $("#e_"+k); if (lk[k] && !el.value.trim()) { el.value = lk[k]; el.classList.add("auto"); n++; }
   }
   if (lk.coverUrl && !E.coverUrl && !E.coverData) { E.coverUrl = lk.coverUrl; renderCover(); n++; }
