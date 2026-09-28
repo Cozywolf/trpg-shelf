@@ -22,15 +22,22 @@ const LABELS = {
 const KEYS = Object.keys(LABELS);
 const TEXT_KEYS = ['isbn', 'pubdate', 'edition', 'code', 'title', 'titleAlt', 'note', 'author', 'publisher'];
 
+const SCRIPT_VERSION = '2026-09-27b';
+
+function tokenReady_() {
+  return typeof TOKEN === 'string' && TOKEN.trim().length > 0 && !/^請改/.test(TOKEN);
+}
+
+// 在瀏覽器直接打開部署網址，可以確認目前生效的版本與 TOKEN 是否已設定（不會顯示密語內容）
 function doGet() {
-  return json_({ ok: true, msg: 'TRPG 藏書閣 API 運作中' });
+  return json_({ ok: true, msg: 'TRPG 藏書閣 API 運作中', version: SCRIPT_VERSION, tokenSet: tokenReady_() });
 }
 
 function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: '無法解析請求' }); }
-  if (!TOKEN || TOKEN === '請改成你自己的密語') return json_({ ok: false, error: '請先在 Apps Script 裡設定 TOKEN' });
-  if (body.token !== TOKEN) return json_({ ok: false, error: '通關密語錯誤' });
+  if (!tokenReady_()) return json_({ ok: false, error: '請先在 Apps Script 裡設定 TOKEN（目前生效的版本：' + SCRIPT_VERSION + '）' });
+  if (String(body.token || '').trim() !== TOKEN.trim()) return json_({ ok: false, error: '通關密語錯誤' });
   try {
     if (body.action === 'upload') return json_(upload_(body));
     if (body.action === 'sync') {
