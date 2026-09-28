@@ -5,14 +5,14 @@ const KINDS = ["官方出版","同人","自印","PDF列印","其他"];
 const SYSTEMS = ["CoC 7版","CoC 6版","D&D 5e","D&D 2024","Pathfinder 2e","SW2.5 劍世界","忍神","Emoklore","Insane 瘋狂","Double Cross 3rd","Fabula Ultima","Blades in the Dark","Vampire V5","通用／無系統"];
 const COLORS = ["#3E4A89","#6B3E7A","#2F6B5E","#8A4B2E","#2E5A87","#7A2F3F","#4E5D2F","#5A4636"];
 const FIELDS = ["title","titleAlt","system","lang","author","publisher","isbn","pubdate","edition","code","shelf","where","note"];
-const K = { books:"ts.books", out:"ts.outbox", cfg:"ts.cfg", sort:"ts.sort", last:"ts.lastSync" };
+const K = { books:"ts.books", out:"ts.outbox", cfg:"ts.cfg", sort:"ts.sort", last:"ts.lastSync", view:"ts.view" };
 
 /* ---------- storage ---------- */
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 const S = {
   books: load(K.books, []), out: load(K.out, { up:{}, del:[] }), cfg: load(K.cfg, { url:"", token:"" }),
-  q:"", sys:"", kind:"", tag:"", sort: load(K.sort, "recent"), check:null,
+  q:"", sys:"", kind:"", tag:"", sort: load(K.sort, "recent"), view: load(K.view, "grid"), check:null,
   syncing:false, again:false, lastSync: load(K.last, 0), syncErr:"",
 };
 function persist(){
@@ -81,6 +81,21 @@ function coverHTML(b){
 }
 document.addEventListener("error", e => { if (e.target.tagName==="IMG" && e.target.closest?.(".cv,.lk")) e.target.remove(); }, true);
 
+function rowHTML(b){
+  const tags = (b.tags||[]).slice(0,4).map(t=>`<span>#${esc(t)}</span>`).join("");
+  const pend = S.out.up[b.id] && S.cfg.url;
+  const sub = [b.system, b.publisher, b.edition].filter(Boolean).map(esc).join("・");
+  return `<button class="lrow" data-id="${esc(b.id)}">
+    <span class="row-cv">${coverHTML(b)}</span>
+    <span class="row-main">
+      <span class="row-t">${esc(b.title||"未命名")}</span>
+      ${b.titleAlt ? `<span class="row-alt">${esc(b.titleAlt)}</span>` : ""}
+      <span class="row-sub">${b.kind?`<span class="badge k-${esc(b.kind)}">${esc(b.kind)}</span>`:""}${sub?`<span>${sub}</span>`:""}</span>
+      ${tags?`<span class="tags">${tags}</span>`:""}
+    </span>
+    <span class="row-end"><span class="shelfno">${shelfStr(b.shelf)}</span>${b.needsReview?'<span class="mini warn">待確認</span>':""}${pend?'<span class="mini">未同步</span>':""}</span>
+  </button>`;
+}
 function cardHTML(b, sample=false){
   const tags = (b.tags||[]).slice(0,3).map(t=>`<span>#${esc(t)}</span>`).join("");
   const pend = !sample && S.out.up[b.id];
@@ -158,7 +173,7 @@ function render(){
     return;
   }
   const rows = filtered();
-  list.innerHTML = rows.length ? `<div class="grid">${rows.map(b=>cardHTML(b)).join("")}</div>`
+  list.innerHTML = rows.length ? (S.view === "list" ? `<div class="rows">${rows.map(rowHTML).join("")}</div>` : `<div class="grid">${rows.map(b=>cardHTML(b)).join("")}</div>`)
     : (S.check ? "" : `<div class="none">找不到符合的書。${S.q?`<br><button class="btn small" style="margin-top:10px" data-act="addfromq">以「${esc(S.q)}」新增</button>`:""}</div>`);
 }
 function pendingCount(){ return Object.keys(S.out.up).length + S.out.del.length; }
@@ -460,6 +475,9 @@ $("#fSys").addEventListener("change", e => { S.sys=e.target.value; render(); });
 $("#fKind").addEventListener("change", e => { S.kind=e.target.value; render(); });
 $("#fTag").addEventListener("change", e => { S.tag=e.target.value; render(); });
 $("#sort").addEventListener("change", e => { S.sort=e.target.value; store(K.sort, S.sort); render(); });
+function syncViewBtns(){ document.querySelectorAll("#viewSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === S.view))); }
+$("#viewSeg").addEventListener("click", e => { const b = e.target.closest("button[data-view]"); if (!b) return; S.view = b.dataset.view; store(K.view, S.view); syncViewBtns(); render(); });
+syncViewBtns();
 $("#checkBtn").onclick = () => openScanner("check");
 $("#scanAddBtn").onclick = () => openScanner("add");
 $("#addManual").onclick = () => openEditor(null);
@@ -475,7 +493,7 @@ document.addEventListener("click", e => {
     else if (act==="addfromq") openEditor(null, toIsbn(S.q) ? { isbn: toIsbn(S.q) } : { title: S.q });
     return;
   }
-  const card = e.target.closest(".card[data-id]");
+  const card = e.target.closest(".card[data-id], .lrow[data-id]");
   if (card) { const b = S.books.find(x=>x.id===card.dataset.id); if (b) openEditor(b); }
 });
 function pickLookup(lk){ const o={}; for (const k of ["title","titleAlt","author","publisher","pubdate","lang","system","note","coverUrl"]) if (lk[k]) o[k]=lk[k]; o.kind="官方出版"; return o; }

@@ -35,6 +35,7 @@
         <span>查重</span>
       </button>
     </div>
+    <div class="filterbar">
     <div class="filters">
       <select id="fSys" aria-label="系統"></select>
       <select id="fKind" aria-label="類型"></select>
@@ -45,6 +46,12 @@
         <option value="title">書名</option>
         <option value="system">系統</option>
       </select>
+
+    </div>
+    <div class="viewseg" id="viewSeg" role="group" aria-label="顯示方式">
+        <button type="button" data-view="grid" aria-label="封面格狀" title="封面格狀"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="8" rx="1"/><rect x="14" y="3" width="7" height="8" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+        <button type="button" data-view="list" aria-label="清單" title="清單"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><rect x="3" y="4.5" width="3" height="3" rx=".5"/><rect x="3" y="10.5" width="3" height="3" rx=".5"/><rect x="3" y="16.5" width="3" height="3" rx=".5"/></svg></button>
+      </div>
     </div>
   </div>
 
