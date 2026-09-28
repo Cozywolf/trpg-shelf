@@ -158,6 +158,12 @@
         <div class="row"><button type="button" class="btn small" id="cfgGbSave">儲存金鑰</button><span class="st" id="gbSt"></span></div>
       </section>
       <section class="panel">
+        <h3>備份設定</h3>
+        <p class="hint">產生一個包含同步網址、通關密語和 API 金鑰的連結。設定不見或換手機時，在手機上打開這個連結就會自動還原。連結裡有你的密語，請存在只有自己看得到的地方（例如 Google Keep 或傳給自己的訊息）。</p>
+        <div class="row"><button type="button" class="btn small" id="cfgLinkBtn">複製設定連結</button><span class="st" id="cfgLinkSt"></span></div>
+        <input id="cfgLinkOut" class="mono linkout" readonly hidden aria-label="設定連結">
+      </section>
+      <section class="panel">
         <h3>同步狀態</h3>
         <p class="hint" id="syncInfo"></p>
         <div class="row"><button type="button" class="btn small" id="syncNow">立即同步</button></div>

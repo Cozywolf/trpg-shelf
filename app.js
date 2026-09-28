@@ -697,6 +697,31 @@ $("#cfgGbSave").onclick = () => {
   const st = $("#gbSt"); st.className = "st ok"; st.textContent = S.cfg.gbKey ? "已儲存，之後查詢 Google Books 會使用這組金鑰。" : "已清除金鑰。";
 };
 
+/* setup link: backup / restore sync settings */
+const b64u = str => { const bytes = new TextEncoder().encode(str); let bin = ""; bytes.forEach(b => bin += String.fromCharCode(b)); return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
+const unb64u = str => { const bin = atob(str.replace(/-/g,"+").replace(/_/g,"/")); return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))); };
+$("#cfgLinkBtn").onclick = async () => {
+  const st = $("#cfgLinkSt"), out = $("#cfgLinkOut");
+  if (!S.cfg.url) { st.className = "st bad"; st.textContent = "請先設定同步網址。"; return; }
+  const link = location.origin + location.pathname + "#setup=" + b64u(JSON.stringify({ u:S.cfg.url, t:S.cfg.token, k:S.cfg.gbKey || "" }));
+  out.value = link; out.hidden = false;
+  try { await navigator.clipboard.writeText(link); st.className = "st ok"; st.textContent = "已複製，請貼到只有自己看得到的地方保存。"; }
+  catch { out.focus(); out.select(); st.className = "st"; st.textContent = "請長按下方連結手動複製。"; }
+};
+function restoreFromHash(){
+  const m = location.hash.match(/^#setup=([A-Za-z0-9_-]+)$/);
+  if (!m) return false;
+  history.replaceState(null, "", location.pathname);
+  try {
+    const c = JSON.parse(unb64u(m[1]));
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(c.u || "")) throw new Error();
+    S.cfg = { ...S.cfg, url:c.u, token:c.t || "", gbKey:c.k || S.cfg.gbKey || "" };
+    store(K.cfg, S.cfg);
+    toast("已還原同步設定，正在下載資料…", 3500);
+    return true;
+  } catch { toast("設定連結無法讀取，請重新產生。", 4000); return false; }
+}
+
 const COLS = [["title","書名"],["titleAlt","原文書名"],["system","系統"],["kind","類型"],["author","作者"],["publisher","出版社"],["isbn","ISBN"],["pubdate","出版日期"],["code","QR內容"],["edition","版次"],["lang","語言"],["tags","標籤"],["note","備註"],["shelf","流水號"],["where","收藏位置"],["needsReview","待確認"],["coverUrl","封面網址"]];
 const csvCell = v => { const s=String(v??""); return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
 $("#expBtn").onclick = () => {
@@ -745,7 +770,10 @@ $("#impFile").addEventListener("change", async e => {
 });
 
 /* ---------- boot ---------- */
+restoreFromHash();
 render();
 if (S.cfg.url) scheduleSync(300);
+// 請瀏覽器把本機資料標記為永久保存，降低被自動清除的機會
+navigator.storage?.persist?.().catch(()=>{});
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();

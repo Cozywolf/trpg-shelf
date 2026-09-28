@@ -1,5 +1,5 @@
 // 更新程式時請把版本號加一，手機才會抓到新版
-const VERSION = 'trpg-shelf-v5';
+const VERSION = 'trpg-shelf-v6';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'zxing.min.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];
 
