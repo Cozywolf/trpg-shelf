@@ -22,7 +22,10 @@ const LABELS = {
 const KEYS = Object.keys(LABELS);
 const TEXT_KEYS = ['isbn', 'pubdate', 'edition', 'code', 'title', 'titleAlt', 'note', 'author', 'publisher'];
 
-const SCRIPT_VERSION = '2026-09-27b';
+const SCRIPT_VERSION = '2026-09-27c';
+
+// App 查書目時，手機直接連線失敗會改由這裡代查；只允許這幾個書目資料庫
+const FETCH_ALLOWED = /^https:\/\/(www\.googleapis\.com\/books\/|openlibrary\.org\/|api\.openbd\.jp\/)/;
 
 function tokenReady_() {
   return typeof TOKEN === 'string' && TOKEN.trim().length > 0 && !/^請改/.test(TOKEN);
@@ -40,6 +43,7 @@ function doPost(e) {
   if (String(body.token || '').trim() !== TOKEN.trim()) return json_({ ok: false, error: '通關密語錯誤' });
   try {
     if (body.action === 'upload') return json_(upload_(body));
+    if (body.action === 'fetch') return json_(fetch_(body));
     if (body.action === 'sync') {
       const lock = LockService.getScriptLock();
       lock.waitLock(20000);
@@ -162,6 +166,21 @@ function sync_(body) {
     return o;
   });
   return { ok: true, books: books };
+}
+
+function fetch_(body) {
+  const url = String(body.url || '');
+  if (!FETCH_ALLOWED.test(url)) return { ok: false, error: '不允許的網址' };
+  const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'TRPG-Shelf/1.0 (personal book catalog)' } });
+  return { ok: true, status: res.getResponseCode(), body: res.getContentText() };
+}
+
+/** 更新程式後在編輯器執行一次這個函式，讓 Google 詢問新的權限（連線到外部網站）。 */
+function authorize() {
+  UrlFetchApp.fetch('https://openlibrary.org/', { muteHttpExceptions: true });
+  SpreadsheetApp.getActiveSpreadsheet();
+  DriveApp.getRootFolder();
+  Logger.log('授權完成，目前版本：' + SCRIPT_VERSION);
 }
 
 function upload_(body) {

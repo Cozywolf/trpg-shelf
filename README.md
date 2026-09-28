@@ -38,7 +38,14 @@ App 網址：https://cozywolf.github.io/trpg-shelf/
 
 試算表會自動建立「藏書」工作表。封面照片會存在雲端硬碟的「TRPG藏書閣封面」資料夾（設為「知道連結的人可檢視」，App 才能顯示）。
 
-> 之後如果修改了 `Code.gs`，要用 **部署 → 管理部署作業 → 編輯（鉛筆）→ 版本選「新版本」→ 部署**，網址才會維持不變。
+### 更新 Apps Script
+
+`Code.gs` 有新版時：
+
+1. 複製 [最新的 Code.gs](https://raw.githubusercontent.com/Cozywolf/trpg-shelf/main/apps-script/Code.gs)，貼上取代編輯器裡的全部內容，**只改 TOKEN 那一行**，儲存
+2. 上方函式選單選 `authorize` → 按 **執行**，出現授權畫面就允許（新版本需要新權限時才會出現）
+3. **部署 → 管理部署作業 → 編輯（鉛筆）→ 版本選「新版本」→ 部署**（不要用「新增部署作業」，網址才不會變）
+4. 在瀏覽器打開你的 `/exec` 網址，確認顯示的 `version` 是新的、`tokenSet` 是 `true`
 
 ## 三、裝到 Android 手機
 
@@ -55,7 +62,7 @@ App 網址：https://cozywolf.github.io/trpg-shelf/
 | 日本書（ISBN 978-4） | [openBD](https://openbd.jp/)（資料來自國立國會圖書館），加上 Google Books | Google Books 有才有，常常沒有 |
 | 美國等其他書 | Google Books、[Open Library](https://openlibrary.org/) | 通常有 |
 
-幾個來源會同時查詢，一個失敗時會用其他來源的結果。日本書的封面資料庫已經停止免費提供，查不到封面時請按「拍封面」。
+幾個來源會同時查詢，一個失敗時會用其他來源的結果。手機直接連線失敗（例如 Google Books 查詢次數超過上限）時，會改由你的 Apps Script 代為查詢。日本書的封面資料庫已經停止免費提供，查不到封面時請按「拍封面」。
 
 ## 小提醒
 
